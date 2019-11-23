@@ -3,19 +3,25 @@ use crate::*;
 // use std::time::{Duration, SystemTime};
 #[derive(Clone)]
 pub struct FromVec<T> {
-    data: Vec<T>,
+    pub(super) data: Vec<T>,
 }
+
 impl<T: Clone> Observable for FromVec<T> {
     type Item = T;
-    fn subscribe<OT: Observer<T = T>>(&self, sink: RcRefCell<OT>) {
-        let mut observer = sink.borrow_mut();
+    fn subscribe(
+        &self,
+        mut next: impl FnMut(Event<T>) -> bool,
+        complete: impl Fn(Result<(), &str>),
+    ) -> Abort {
+        let dis = Abort::new();
+        let nextHandler = Self::newNext(&mut next);
         for i in &self.data {
-            observer.next(i);
-            if observer.isDisposed() {
-                return;
+            if Self::next(i, nextHandler.clone()) == false {
+                return dis;
             }
         }
-        observer.complete(Ok(()))
+        complete(Ok(()));
+        dis
     }
 }
 
@@ -30,21 +36,3 @@ impl<T: Clone> Observable for FromVec<T> {
 //         sink
 //     }
 // }
-pub struct Rx;
-
-impl Rx {
-    pub fn fromVec<'a, T: 'a>(data: Vec<T>) -> FromVec<T> {
-        FromVec { data }
-    }
-    pub fn fromIterator<T, I: IntoIterator<Item = T>>(data: I) -> FromVec<T> {
-        FromVec {
-            data: data.into_iter().collect(),
-        }
-    }
-    // pub fn interval<'a, T: 'a>(period: u32) -> Interval<T> {
-    //     Interval {
-    //         period,
-    //         marker: std::marker::PhantomData,
-    //     }
-    // }
-}
