@@ -1,13 +1,14 @@
 use crate::*;
 use std::cell::RefCell;
-use std::ops::Deref;
 use std::rc::Rc;
 pub struct Rx;
 
 impl Rx {
-    pub fn fromVec<'a, T: 'a>(data: Vec<T>) -> FromVec<T> {
+    #[inline]
+    pub fn fromVec<T>(data: Vec<T>) -> FromVec<T> {
         FromVec { data }
     }
+    #[inline]
     pub fn fromIterator<T, I: IntoIterator<Item = T>>(data: I) -> FromVec<T> {
         FromVec {
             data: data.into_iter().collect(),
@@ -20,39 +21,12 @@ impl Rx {
     //     }
     // }
 }
-pub struct Event<'a, T>(
-    pub &'a T,
-    pub Rc<RefCell<&'a mut dyn FnMut(Event<T>) -> bool>>,
-);
-impl<'a, T> Deref for Event<'a, T> {
-    type Target = T;
-    fn deref(&self) -> &T {
-        self.0
-    }
-}
-impl<'a, T> Event<'a, T> {
-    pub fn changeNext(&self, newNext: &'a mut dyn FnMut(Event<T>) -> bool) {
-        self.1.replace(newNext);
-    }
-}
+
 pub trait Observable: std::marker::Sized + Clone {
-    type Item;
-    fn newNext(
-        next: &mut impl FnMut(Event<Self::Item>) -> bool,
-    ) -> Rc<RefCell<&mut dyn FnMut(Event<Self::Item>) -> bool>> {
-        Rc::new(RefCell::new(next))
-    }
-    fn next<'b, Item>(
-        data: &'b Item,
-        handler: Rc<RefCell<&'b mut dyn FnMut(Event<Item>) -> bool>>,
-    ) -> bool {
-        let newEvent = Event::<'b, Item>(data, handler.clone());
-        let nextHandler = &mut *handler.borrow_mut();
-        nextHandler(newEvent)
-    }
+    type Output;
     fn subscribe(
         &self,
-        next: impl FnMut(Event<Self::Item>) -> bool,
+        next: impl FnMut(Self::Output) -> bool,
         complete: impl Fn(Result<(), &str>),
     ) -> Abort;
     #[inline]
@@ -66,6 +40,20 @@ pub trait Observable: std::marker::Sized + Clone {
     fn takeUntil<CO: Observable>(&self, control: &CO) -> TakeUntil<Self, CO> {
         TakeUntil {
             control: control.clone(),
+            source: self.clone(),
+        }
+    }
+    #[inline]
+    fn map<T1, T2>(&self, project: impl Fn(T1) -> T2 + 'static) -> Map<Self, T1, T2> {
+        Map {
+            project: Rc::new(project),
+            source: self.clone(),
+        }
+    }
+    #[inline]
+    fn filter(&self, project: impl Fn(&Self::Output) -> bool + 'static) -> Filter<Self> {
+        Filter {
+            project: Rc::new(project),
             source: self.clone(),
         }
     }

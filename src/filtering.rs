@@ -1,5 +1,39 @@
 #![allow(non_snake_case)]
 use crate::*;
+use std::rc::Rc;
+
+pub struct Filter<O: Observable> {
+    pub project: Rc<dyn Fn(&O::Output) -> bool>,
+    pub source: O,
+}
+impl<O: Observable> Observable for Filter<O> {
+    type Output = O::Output;
+    fn subscribe(
+        &self,
+        mut next: impl FnMut(Self::Output) -> bool,
+        complete: impl Fn(Result<(), &str>),
+    ) -> Abort {
+        self.source.subscribe(
+            |data| {
+                if (self.project)(&data) {
+                    next(data)
+                } else {
+                    true
+                }
+            },
+            complete,
+        )
+    }
+}
+impl<O: Observable> Clone for Filter<O> {
+    fn clone(&self) -> Self {
+        Filter {
+            source: self.source.clone(),
+            project: self.project.clone(),
+        }
+    }
+}
+
 //Begin Take Operator
 #[derive(Clone)]
 pub struct Take<O> {
@@ -7,10 +41,10 @@ pub struct Take<O> {
     pub source: O,
 }
 impl<O: Observable> Observable for Take<O> {
-    type Item = O::Item;
+    type Output = O::Output;
     fn subscribe(
         &self,
-        mut next: impl FnMut(Event<Self::Item>) -> bool,
+        mut next: impl FnMut(Self::Output) -> bool,
         complete: impl Fn(Result<(), &str>),
     ) -> Abort {
         let mut remain = self.count;
@@ -40,10 +74,10 @@ pub struct TakeUntil<SO, CO> {
 }
 
 impl<SO: Observable, CO: Observable> Observable for TakeUntil<SO, CO> {
-    type Item = SO::Item;
+    type Output = SO::Output;
     fn subscribe(
         &self,
-        next: impl FnMut(Event<Self::Item>) -> bool,
+        next: impl FnMut(Self::Output) -> bool,
         complete: impl Fn(Result<(), &str>),
     ) -> Abort {
         let aball = Abort::new();

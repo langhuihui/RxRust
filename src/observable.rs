@@ -7,16 +7,15 @@ pub struct FromVec<T> {
 }
 
 impl<T: Clone> Observable for FromVec<T> {
-    type Item = T;
+    type Output = T;
     fn subscribe(
         &self,
-        mut next: impl FnMut(Event<T>) -> bool,
+        mut next: impl FnMut(Self::Output) -> bool,
         complete: impl Fn(Result<(), &str>),
     ) -> Abort {
         let dis = Abort::new();
-        let nextHandler = Self::newNext(&mut next);
-        for i in &self.data {
-            if Self::next(i, nextHandler.clone()) == false {
+        for i in self.data.clone() {
+            if next(i) == false {
                 return dis;
             }
         }
