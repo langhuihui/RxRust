@@ -2,14 +2,16 @@ use crate::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 pub struct Rx;
-
+fn test<T>() -> T {
+    true
+}
 impl Rx {
     #[inline]
     pub fn fromVec<T>(data: Vec<T>) -> FromVec<T> {
         FromVec { data }
     }
     #[inline]
-    pub fn fromIterator<T, I: IntoIterator<Item = T>>(data: I) -> FromVec<T> {
+    pub async fn fromIterator<T, I: IntoIterator<Item = T>>(data: I) -> FromVec<T> {
         FromVec {
             data: data.into_iter().collect(),
         }
@@ -22,13 +24,15 @@ impl Rx {
     // }
 }
 
+pub struct Error {}
+pub type Done = Result<(), Error>;
 pub trait Observable: std::marker::Sized + Clone {
     type Output;
     fn subscribe(
         &self,
         next: impl FnMut(Self::Output) -> bool,
         complete: impl Fn(Result<(), &str>),
-    ) -> Abort;
+    ) -> tokio::executor::Spawn;
     #[inline]
     fn take(&self, count: usize) -> Take<Self> {
         Take {

@@ -8,11 +8,11 @@ pub struct Map<O, T1, T2> {
 }
 impl<O: Observable<Output = T1>, T1, T2> Observable for Map<O, T1, T2> {
     type Output = T2;
-    fn subscribe(
+    fn subscribe<R: std::future::Future<Output = Done>>(
         &self,
         mut next: impl FnMut(T2) -> bool,
         complete: impl Fn(Result<(), &str>),
-    ) -> Abort {
+    ) -> R {
         self.source
             .subscribe(|data| next((self.project)(data)), complete)
     }

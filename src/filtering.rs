@@ -8,11 +8,11 @@ pub struct Filter<O: Observable> {
 }
 impl<O: Observable> Observable for Filter<O> {
     type Output = O::Output;
-    fn subscribe(
+    fn subscribe<R: std::future::Future<Output = Done>>(
         &self,
         mut next: impl FnMut(Self::Output) -> bool,
         complete: impl Fn(Result<(), &str>),
-    ) -> Abort {
+    ) -> R {
         self.source.subscribe(
             |data| {
                 if (self.project)(&data) {

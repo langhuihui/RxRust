@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+extern crate tokio;
 pub use crate::filtering::*;
 pub use crate::observable::*;
 pub use crate::tests::*;
